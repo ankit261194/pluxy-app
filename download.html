@@ -1,0 +1,267 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download Pluxy App - Official Android APK & PWA Center</title>
+  <link rel="icon" type="image/png" href="assets/pluxy-icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+  <style>
+    body {
+      background: #060913;
+      color: #F8FAFC;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 30px 16px;
+    }
+    .download-container {
+      width: 100%;
+      max-width: 600px;
+      background: #0F172A;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 32px;
+      padding: 36px 28px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85);
+      text-align: center;
+    }
+    .dl-logo-wrap {
+      position: relative;
+      width: 90px;
+      height: 90px;
+      margin: 0 auto 16px;
+    }
+    .dl-logo-img {
+      width: 100%;
+      height: 100%;
+      border-radius: 26px;
+      object-fit: cover;
+      box-shadow: 0 8px 30px rgba(138, 43, 226, 0.5);
+    }
+    .dl-verified-badge {
+      position: absolute;
+      bottom: -4px;
+      right: -4px;
+      background: #25D366;
+      color: #000;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      border: 3px solid #0F172A;
+    }
+    .dl-title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #FFF 0%, #E2E8F0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .dl-subtitle {
+      font-size: 14px;
+      color: #94A3B8;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .dl-creator-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 215, 0, 0.12);
+      border: 1px solid rgba(255, 215, 0, 0.35);
+      color: #FFD700;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 28px;
+    }
+    .qr-card {
+      background: #1E293B;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 24px;
+      margin-bottom: 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .qr-img {
+      width: 200px;
+      height: 200px;
+      background: #FFF;
+      padding: 12px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      margin-bottom: 14px;
+    }
+    .qr-desc {
+      font-size: 13px;
+      color: #CBD5E1;
+      margin-bottom: 6px;
+    }
+    .qr-ip-badge {
+      font-family: monospace;
+      font-size: 14px;
+      color: #38BDF8;
+      background: rgba(56, 189, 248, 0.1);
+      padding: 4px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .steps-card {
+      text-align: left;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .steps-header {
+      font-size: 15px;
+      font-weight: 800;
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .step-item {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      align-items: flex-start;
+      font-size: 13px;
+      color: #94A3B8;
+      line-height: 1.5;
+    }
+    .step-item:last-child { margin-bottom: 0; }
+    .step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #8A2BE2;
+      color: #FFF;
+      font-weight: 800;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .step-text strong { color: #FFF; }
+    .dl-btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, #4E80EE 0%, #8A2BE2 50%, #FF007F 100%);
+      color: #FFF;
+      border: none;
+      padding: 16px;
+      border-radius: 16px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-decoration: none;
+      box-shadow: 0 6px 25px rgba(138, 43, 226, 0.45);
+      transition: transform 0.15s ease;
+      margin-bottom: 12px;
+    }
+    .dl-btn-primary:active { transform: scale(0.98); }
+    .dl-btn-secondary {
+      width: 100%;
+      background: rgba(37, 211, 102, 0.15);
+      border: 1px solid rgba(37, 211, 102, 0.35);
+      color: #25D366;
+      padding: 14px;
+      border-radius: 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      transition: transform 0.15s ease;
+    }
+    .dl-btn-secondary:active { transform: scale(0.98); }
+  </style>
+</head>
+<body>
+
+<div class="download-container">
+  <!-- Logo & Title -->
+  <div class="dl-logo-wrap">
+    <img src="assets/pluxy-icon.png" class="dl-logo-img" alt="Pluxy" />
+    <div class="dl-verified-badge"><i class="ph-bold ph-check"></i></div>
+  </div>
+
+  <h1 class="dl-title">Pluxy Super-App</h1>
+  <p class="dl-subtitle">WhatsApp + Instagram + Facebook + Snapchat with Lifetime Gemini AI in One App!</p>
+
+  <div class="dl-creator-pill">
+    <i class="ph-fill ph-crown"></i> Founder & Lead Developer: <strong>Ankit Chaudhary (📞 8533955333)</strong>
+  </div>
+
+  <!-- QR Code Scanner Box -->
+  <div class="qr-card">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=http://192.168.1.12:8080" class="qr-img" alt="Scan QR Code with Phone Camera" />
+    <div class="qr-desc">📸 Scan this QR code with your Mobile Phone Camera:</div>
+    <div class="qr-ip-badge">http://192.168.1.12:8080</div>
+  </div>
+
+  <!-- Step by step instructions for Android Installation -->
+  <div class="steps-card">
+    <div class="steps-header">
+      <i class="ph-fill ph-android-logo" style="color: #25D366; font-size: 20px;"></i>
+      <span>How to Install on Android Phone (Official Google WebAPK):</span>
+    </div>
+
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        Apne phone ke <strong>Google Chrome</strong> me yeh link kholein ya upar ka QR code scan karein: <br>
+        <code>http://192.168.1.12:8080</code> (Phone same Wi-Fi par hona chahiye).
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        Chrome ke screen ke bottom par popup aayega: <strong>"Install Pluxy"</strong>.<br>
+        Agar popup na aaye, toh top-right me <strong>3 dots (⋮)</strong> par tap karke <strong>"Install app"</strong> ya <strong>"Add to Home screen"</strong> select karein.
+      </div>
+    </div>
+
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        <strong>"Install"</strong> dabate hi Android OS iska <strong>real WebAPK generate karke app list me daal dega</strong>!
+        Yeh aapke phone me bilkul native APK ki tarah 3D Pluxy icon ke sath run karegi!
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <a href="index.html" class="dl-btn-primary">
+    <i class="ph-bold ph-play-circle"></i> Open Pluxy Super-App Now
+  </a>
+
+  <a href="https://wa.me/918533955333?text=Hello%20Ankit%2C%20I%20am%20testing%20Pluxy%20App!" target="_blank" class="dl-btn-secondary">
+    <i class="ph-bold ph-whatsapp-logo"></i> Connect with Developer Ankit Chaudhary
+  </a>
+</div>
+
+</body>
+</html>
