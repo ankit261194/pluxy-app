@@ -1,0 +1,26 @@
+﻿{
+  "name": "Pluxy - All-in-One Super Social AI",
+  "short_name": "Pluxy",
+  "developer": {
+    "name": "Ankit Chaudhary",
+    "contact": "+91 8533955333"
+  },
+  "description": "Pluxy: WhatsApp, Instagram, Facebook, Snapchat & Lifetime Gemini AI in One App. Created by Ankit Chaudhary.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0B0F19",
+  "theme_color": "#0B0F19",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "assets/pluxy-icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/pluxy-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

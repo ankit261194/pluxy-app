@@ -1,0 +1,113 @@
+{
+  "version": 15,
+  "appConfig": {
+    "appName": "Pluxy",
+    "tagline": "All-in-One Super Social Media & Lifetime AI",
+    "founderName": "Ankit Chaudhary",
+    "founderPhone": "8533955333",
+    "founderEmail": "ankit@pluxy.app",
+    "adminPin": "910010025123343",
+    "themeAccent": "#ff0000"
+  },
+  "featureFlags": {
+    "feed": true,
+    "reels": true,
+    "camera": true,
+    "chats": true,
+    "calling": true,
+    "ai": true,
+    "explore": true,
+    "snapmap": true
+  },
+  "customServices": [
+    {
+      "id": "srv_beats",
+      "name": "Pluxy Beats",
+      "tagline": "Live Music & Lo-Fi Beats",
+      "icon": "🎵",
+      "category": "music",
+      "description": "Non-stop curated Lo-Fi, Chillhop, Punjabi & Bollywood beats while you chat and browse",
+      "targetPosition": "both",
+      "active": true,
+      "badge": "HOT"
+    },
+    {
+      "id": "srv_cricket",
+      "name": "Pluxy Cricket Live",
+      "tagline": "Live IPL & World Cup Scores",
+      "icon": "🏏",
+      "category": "tools",
+      "description": "Ball-by-ball commentary and real-time match stats inside Pluxy",
+      "targetPosition": "both",
+      "active": true,
+      "badge": "LIVE"
+    }
+  ],
+  "sponsoredAds": [
+    {
+      "id": "ad_test_puma",
+      "brand": "Puma Motorsport",
+      "logo": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100",
+      "headline": "Puma Nitro Carbon Speed Shoes 🏎️",
+      "description": "Engineered for maximum velocity and street style. Flat 40% off today!",
+      "mediaUrl": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800",
+      "ctaText": "Order Now (40% OFF) ⚡",
+      "linkUrl": "https://in.puma.com",
+      "placement": "all",
+      "active": true,
+      "impressions": 50,
+      "clicks": 12
+    },
+    {
+      "id": "ad_boat_rockerz",
+      "brand": "boAt Lifestyle",
+      "logo": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100",
+      "headline": "boAt Rockerz 550 - 50mm Dynamic Bass",
+      "description": "Experience 20 Hours of pure non-stop studio playback with Beast Mode low latency! 🎧⚡",
+      "mediaUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800",
+      "ctaText": "Shop Now (₹1,499) 🛍️",
+      "linkUrl": "https://www.boat-lifestyle.com",
+      "placement": "both",
+      "active": true,
+      "impressions": 1420,
+      "clicks": 182
+    },
+    {
+      "id": "ad_pluxy_ai",
+      "brand": "Pluxy Pro AI",
+      "logo": "assets/pluxy-icon.png",
+      "headline": "Unlock Lifetime Gemini 2.0 Flash Pro",
+      "description": "Zero monthly recurring fee. Get infinite multimodal image & code understanding built directly by Founder Ankit Chaudhary! 🚀",
+      "mediaUrl": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800",
+      "ctaText": "Activate Free ✨",
+      "linkUrl": "https://aistudio.google.com/app/apikey",
+      "placement": "both",
+      "active": true,
+      "impressions": 3890,
+      "clicks": 425
+    }
+  ],
+  "creatorFund": {
+    "rpmRate": 75,
+    "minPayout": 100,
+    "totalFundDisbursed": 45000
+  },
+  "userOverrides": {
+    "usr_priya": {
+      "userId": "usr_priya",
+      "isVerified": true,
+      "followers": 15400
+    },
+    "user_priya": {
+      "userId": "user_priya",
+      "isVerified": true,
+      "followers": 50000,
+      "customStatus": "Pluxy Star Creator ✓",
+      "bio": "Award-winning photographer & Pluxy Creator | Verified by Ankit Chaudhary",
+      "bonusCash": 5000
+    }
+  },
+  "userAlerts": {},
+  "announcements": [],
+  "auditLogs": []
+}
