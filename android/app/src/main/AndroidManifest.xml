@@ -1,6 +1,6 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.pluxy.app">
+    >
 
     <!-- All-in-One Super-App Permissions: Camera, Audio, Calls, Internet -->
     <uses-permission android:name="android.permission.INTERNET" />

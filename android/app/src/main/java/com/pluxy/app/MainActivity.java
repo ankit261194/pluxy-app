@@ -1,4 +1,4 @@
-﻿package com.pluxy.app;
+package com.pluxy.app;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
@@ -18,8 +18,8 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private static final int PERMISSION_REQUEST_CODE = 100;
     
-    // Pluxy Local & Remote App URL
-    private static final String APP_URL = "http://192.168.1.12:8080/index.html";
+    // Pluxy Standalone Bundled App URL
+    private static final String APP_URL = "file:///android_asset/index.html";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,15 +29,17 @@ public class MainActivity extends AppCompatActivity {
         webView = findViewById(R.id.pluxy_webview);
         WebSettings settings = webView.getSettings();
         
-        // Enable full modern features
+        // Enable full modern features for offline standalone app
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
+        settings.setAllowFileAccessFromFileURLs(true);
+        settings.setAllowUniversalAccessFromFileURLs(true);
 
-        // Grant WebRTC camera/audio for Snapchat filters & WhatsApp calls
+        // Grant WebRTC camera/audio for Snapchat filters & calling
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {

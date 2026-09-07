@@ -18,3 +18,9 @@ npm-debug.log*
 # Environment
 .env
 .venv/
+
+# Android build outputs and caches
+.gradle/
+build/
+local.properties
+*.apk.idsig
