@@ -118,11 +118,12 @@ app.mount("/", StaticFiles(directory=DIRECTORY, html=True), name="static")
 
 if __name__ == "__main__":
     print("=" * 65)
-    print("🚀 PLUXY PRODUCTION FASTAPI SERVER IS STARTING...")
+    print("[SERVER] Pluxy Production FastAPI Server Starting...")
     print(f"Local URL:       http://localhost:{PORT}")
     print(f"API Docs:        http://localhost:{PORT}/docs")
     print(f"WebSocket:       ws://localhost:{PORT}/ws")
     print("=" * 65)
     sys.stdout.flush()
 
-    uvicorn.run(app, host="0.0.0.0", port=PORT, access_log=False)
+    uvicorn.run("server:app", host="0.0.0.0", port=PORT, access_log=False)
+
