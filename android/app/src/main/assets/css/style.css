@@ -1305,17 +1305,50 @@ body { background: #030712; color: var(--text-primary); display: flex; justify-c
 .auth-fullscreen-modal {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(3, 7, 18, 0.88);
-  backdrop-filter: blur(20px);
-  z-index: 400;
-  display: none;
+  background: #060913;
+  backdrop-filter: blur(25px);
+  z-index: 99999;
+  display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
 }
-.auth-fullscreen-modal.active {
-  display: flex;
-  animation: fadeIn 0.25s ease-out;
+.auth-fullscreen-modal.auth-hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+.auth-link-forgot {
+  font-size: 13px;
+  color: #A855F7;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+.auth-link-forgot:hover {
+  color: #C084FC;
+  text-decoration: underline;
+}
+.auth-code-pill {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px dashed #A855F7;
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: center;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #DDD6FE;
+}
+.auth-code-value {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: #38BDF8;
+  display: block;
+  margin-top: 4px;
 }
 .auth-card-wrapper {
   width: 100%;

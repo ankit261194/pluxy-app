@@ -153,3 +153,95 @@ async def logout(request: Request):
     if token:
         delete_session(token)
     return {"success": True, "message": "Logged out successfully."}
+
+class ForgotPasswordRequest(BaseModel):
+    identifier: str = Field(..., min_length=2)
+
+class ResetPasswordRequest(BaseModel):
+    identifier: str = Field(..., min_length=2)
+    reset_code: str = Field(..., min_length=4, max_length=10)
+    new_password: str = Field(..., min_length=6, max_length=100)
+
+@router.post("/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(f"forgot_{client_ip}", max_requests=10, window_seconds=60):
+        raise HTTPException(status_code=429, detail="Too many reset requests. Please wait a minute.")
+
+    ident = req.identifier.strip().lower()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, username, email, phone FROM users
+            WHERE LOWER(username) = ? OR LOWER(email) = ? OR phone = ?
+        """, (ident, ident, ident))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="No account found matching that username, email, or phone number.")
+
+        user_id = row["id"]
+        username = row["username"]
+        # Generate 6-digit secure numeric verification code
+        code = str(secrets.randbelow(900000) + 100000)
+        reset_id = f"reset_{secrets.token_hex(8)}"
+        now = int(time.time() * 1000)
+        expires_at = now + (15 * 60 * 1000)  # 15 minutes
+
+        cursor.execute("""
+            INSERT INTO password_resets (id, user_id, reset_code, expires_at, used, created_at)
+            VALUES (?, ?, ?, ?, 0, ?)
+        """, (reset_id, user_id, code, expires_at, now))
+
+    return {
+        "success": True,
+        "message": "Reset verification code generated successfully!",
+        "reset_code": code,
+        "username": username
+    }
+
+@router.post("/reset-password")
+async def reset_password(req: ResetPasswordRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    if not check_rate_limit(f"reset_{client_ip}", max_requests=10, window_seconds=60):
+        raise HTTPException(status_code=429, detail="Too many reset attempts. Please wait a minute.")
+
+    ident = req.identifier.strip().lower()
+    clean_code = req.reset_code.strip()
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, username FROM users
+            WHERE LOWER(username) = ? OR LOWER(email) = ? OR phone = ?
+        """, (ident, ident, ident))
+        user_row = cursor.fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User account not found.")
+
+        user_id = user_row["id"]
+        now = int(time.time() * 1000)
+
+        cursor.execute("""
+            SELECT id FROM password_resets
+            WHERE user_id = ? AND reset_code = ? AND used = 0 AND expires_at > ?
+            ORDER BY created_at DESC LIMIT 1
+        """, (user_id, clean_code, now))
+        reset_row = cursor.fetchone()
+        if not reset_row:
+            raise HTTPException(status_code=400, detail="Invalid or expired reset code. Please check your code or request a new one.")
+
+        # Hash new password with scrypt
+        pwd_hash, salt = hash_password(req.new_password)
+        cursor.execute("""
+            UPDATE users SET password_hash = ?, salt = ?, updated_at = ?
+            WHERE id = ?
+        """, (pwd_hash, salt, now, user_id))
+
+        # Mark reset code as used
+        cursor.execute("UPDATE password_resets SET used = 1 WHERE id = ?", (reset_row["id"],))
+
+        # Invalidate existing sessions
+        cursor.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+
+    return {"success": True, "message": "Password updated successfully! You can now log in with your new password."}
+

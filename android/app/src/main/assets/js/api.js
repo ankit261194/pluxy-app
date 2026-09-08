@@ -44,13 +44,17 @@ class PluxyApiClient {
 
   async request(endpoint, options = {}) {
     const url = endpoint.startsWith("http") ? endpoint : `${this.baseUrl}${endpoint}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
     const opts = {
       ...options,
-      headers: this.getHeaders(options.headers || {})
+      headers: this.getHeaders(options.headers || {}),
+      signal: options.signal || controller.signal
     };
 
     try {
       const resp = await fetch(url, opts);
+      clearTimeout(timeoutId);
       const text = await resp.text();
       let data = {};
       try {
@@ -61,7 +65,7 @@ class PluxyApiClient {
 
       if (resp.status === 401) {
         // Token invalid or expired
-        if (endpoint !== "/api/auth/login" && endpoint !== "/api/auth/register") {
+        if (!endpoint.startsWith("/api/auth/")) {
           this.clearToken();
           if (window.authModule && typeof window.authModule.onSessionExpired === "function") {
             window.authModule.onSessionExpired();
@@ -76,6 +80,10 @@ class PluxyApiClient {
 
       return data;
     } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === "AbortError") {
+        throw new Error("Server took too long to respond. If the cloud server is waking up, please retry in 10 seconds.");
+      }
       console.warn(`[PluxyAPI] Request to ${endpoint} failed:`, err);
       throw err;
     }
