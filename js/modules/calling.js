@@ -1,4 +1,4 @@
-﻿// WhatsApp Voice & Video Calling Service with Real Dual-Video & Ringtone
+// Pluxy Voice & Video Calling: True WebRTC Architecture with WebSocket Signaling
 class CallingModule {
   constructor() {
     this.modal = null;
@@ -8,8 +8,14 @@ class CallingModule {
     this.isMuted = false;
     this.isVideo = true;
     this.ringInterval = null;
-    this.activeContact = { name: "Priya Sharma", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200" };
     this.localStream = null;
+    this.peerConnection = null;
+    this.activeTargetUserId = null;
+    this.activeContact = { name: "Contact", avatar: "assets/pluxy-icon.png" };
+    this.iceServers = [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" }
+    ];
   }
 
   init() {
@@ -18,9 +24,83 @@ class CallingModule {
     this.setupControls();
   }
 
-  // Start an Outgoing Call (Voice or Video)
-  async startCall(contactName, contactAvatar, isVideo = true) {
+  // Called when a WebRTC signal is received over WebSocket
+  async handleSignalingMessage(data) {
+    const action = data.action;
+    const senderId = data.senderId;
+    const payload = data.payload || {};
+
+    if (action === "call_request") {
+      // Incoming call received
+      this.activeTargetUserId = senderId;
+      this.activeContact = {
+        name: payload.callerName || "Pluxy User",
+        avatar: payload.callerAvatar || "assets/pluxy-icon.png"
+      };
+      this.isVideo = payload.callType === "video";
+      this.showIncomingCallDialog(this.activeContact.name, this.activeContact.avatar);
+    } else if (action === "call_accept") {
+      // Callee accepted, create SDP offer
+      document.getElementById("calling-status-text").innerText = "Connecting WebRTC...";
+      await this.createOffer();
+    } else if (action === "call_reject") {
+      this.stopRingtone();
+      if (window.app) window.app.showToast("Call was declined / user busy. 📵");
+      this.endCall(false);
+    } else if (action === "sdp_offer") {
+      await this.handleOffer(payload.sdp);
+    } else if (action === "sdp_answer") {
+      await this.handleAnswer(payload.sdp);
+    } else if (action === "ice_candidate") {
+      if (this.peerConnection && payload.candidate) {
+        try {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        } catch (e) {}
+      }
+    } else if (action === "call_end") {
+      this.endCall(false);
+    }
+  }
+
+  createPeerConnection() {
+    if (this.peerConnection) {
+      this.peerConnection.close();
+    }
+
+    this.peerConnection = new RTCPeerConnection({ iceServers: this.iceServers });
+
+    // Send local ICE candidates to peer
+    this.peerConnection.onicecandidate = (event) => {
+      if (event.candidate && this.activeTargetUserId) {
+        this.sendSignal("ice_candidate", { candidate: event.candidate });
+      }
+    };
+
+    // Attach remote stream tracks when received
+    this.peerConnection.ontrack = (event) => {
+      console.log("[WebRTC] Received remote stream track:", event.track.kind);
+      this.stopRingtone();
+      document.getElementById("calling-status-text").innerText = "Connected 🟢";
+      this.startTimer();
+
+      const remoteVid = document.getElementById("calling-remote-video");
+      if (remoteVid && event.streams[0]) {
+        remoteVid.srcObject = event.streams[0];
+        remoteVid.play().catch(e => console.warn(e));
+      }
+    };
+
+    // Add local stream tracks
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(track => {
+        this.peerConnection.addTrack(track, this.localStream);
+      });
+    }
+  }
+
+  async startCall(targetUserId, contactName, contactAvatar, isVideo = true) {
     if (!this.modal) return;
+    this.activeTargetUserId = targetUserId || "user_peer";
     this.activeContact = { name: contactName, avatar: contactAvatar };
     this.isVideo = isVideo;
     this.seconds = 0;
@@ -28,76 +108,119 @@ class CallingModule {
 
     document.getElementById("calling-contact-name").innerText = contactName;
     document.getElementById("calling-contact-avatar").src = contactAvatar;
-    document.getElementById("calling-status-text").innerText = isVideo ? "WhatsApp Video Calling..." : "WhatsApp Voice Calling...";
+    document.getElementById("calling-status-text").innerText = isVideo ? "Pluxy Video Calling..." : "Pluxy Voice Calling...";
     document.getElementById("calling-timer").innerText = "Ringing...";
 
-    // Configure Video or Voice visual layout
     const videoContainer = document.getElementById("call-video-streams-container");
     const voiceContainer = document.getElementById("call-voice-avatar-container");
     if (isVideo) {
       videoContainer.style.display = "block";
       voiceContainer.style.display = "none";
-      await this.initLocalVideo();
+      await this.initLocalMedia(true);
     } else {
       videoContainer.style.display = "none";
       voiceContainer.style.display = "flex";
+      await this.initLocalMedia(false);
     }
 
     this.modal.classList.add("active");
     this.playRingtone();
 
-    // Answer call after 2.8 seconds
-    setTimeout(() => {
-      this.stopRingtone();
-      document.getElementById("calling-status-text").innerText = "End-to-End Encrypted";
-      this.startTimer();
-      window.app.playSound('ding');
-      window.app.showToast(`Connected with ${contactName} 🟢 (HD Audio & Video)`);
-    }, 2800);
+    // Send call request signal to target peer via WebSocket
+    const user = window.authModule ? window.authModule.currentUser : null;
+    this.sendSignal("call_request", {
+      callerName: user ? user.displayName : "Pluxy User",
+      callerAvatar: user ? user.avatar : "assets/pluxy-icon.png",
+      callType: isVideo ? "video" : "voice"
+    });
   }
 
-  // Simulate an Incoming Video Call from Priya Sharma
-  triggerIncomingCall(contactName = "Priya Sharma", contactAvatar = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200") {
+  showIncomingCallDialog(contactName, contactAvatar) {
     if (!this.incomingModal) return;
-    this.activeContact = { name: contactName, avatar: contactAvatar };
-
     document.getElementById("incoming-caller-name").innerText = contactName;
     document.getElementById("incoming-caller-avatar").src = contactAvatar;
-
     this.incomingModal.classList.add("active");
     this.playRingtone();
-    window.app.playSound('pop');
   }
 
-  acceptIncomingCall() {
+  async acceptIncomingCall() {
     this.stopRingtone();
     if (this.incomingModal) this.incomingModal.classList.remove("active");
-    this.startCall(this.activeContact.name, this.activeContact.avatar, true);
+
+    await this.initLocalMedia(this.isVideo);
+    this.createPeerConnection();
+
+    this.modal.classList.add("active");
+    document.getElementById("calling-contact-name").innerText = this.activeContact.name;
+    document.getElementById("calling-contact-avatar").src = this.activeContact.avatar;
+    document.getElementById("calling-status-text").innerText = "Connecting...";
+
+    this.sendSignal("call_accept", {});
   }
 
   declineIncomingCall() {
     this.stopRingtone();
     if (this.incomingModal) this.incomingModal.classList.remove("active");
-    window.app.showToast("Call declined ❌");
-    window.app.playSound('pop');
+    this.sendSignal("call_reject", {});
+    if (window.app) window.app.showToast("Call declined ❌");
   }
 
-  async initLocalVideo() {
+  async initLocalMedia(video = true) {
     try {
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(t => t.stop());
+      }
+      this.localStream = await navigator.mediaDevices.getUserMedia({
+        video: video ? { facingMode: "user" } : false,
+        audio: true
+      });
+
       const localVid = document.getElementById("calling-local-video-feed");
       if (localVid) {
-        this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         localVid.srcObject = this.localStream;
-        localVid.play();
+        localVid.play().catch(e => console.warn(e));
       }
-    } catch (e) {
-      console.warn("Local camera PiP fallback:", e);
+    } catch (err) {
+      console.warn("[WebRTC] Could not capture media devices:", err);
+      if (window.app) window.app.showToast("Camera/Mic access denied or unavailable. ⚠️");
+    }
+  }
+
+  async createOffer() {
+    this.createPeerConnection();
+    const offer = await this.peerConnection.createOffer();
+    await this.peerConnection.setLocalDescription(offer);
+    this.sendSignal("sdp_offer", { sdp: offer });
+  }
+
+  async handleOffer(offer) {
+    this.createPeerConnection();
+    await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await this.peerConnection.createAnswer();
+    await this.peerConnection.setLocalDescription(answer);
+    this.sendSignal("sdp_answer", { sdp: answer });
+  }
+
+  async handleAnswer(answer) {
+    if (this.peerConnection) {
+      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    }
+  }
+
+  sendSignal(action, payload) {
+    if (window.chatModule && typeof window.chatModule.sendSocketPayload === "function") {
+      window.chatModule.sendSocketPayload({
+        type: "webrtc_signal",
+        action: action,
+        targetUserId: this.activeTargetUserId,
+        payload: payload
+      });
     }
   }
 
   playRingtone() {
     this.stopRingtone();
-    if (!window.app.audioCtx) return;
+    if (!window.app || !window.app.audioCtx) return;
     const ctx = window.app.audioCtx;
 
     const playTone = () => {
@@ -106,10 +229,9 @@ class CallingModule {
         const osc2 = ctx.createOscillator();
         const gain = ctx.createGain();
 
-        // Dual Tone Multi-Frequency 440Hz + 480Hz
         osc1.frequency.value = 440;
         osc2.frequency.value = 480;
-        gain.gain.value = 0.09;
+        gain.gain.value = 0.08;
 
         osc1.connect(gain);
         osc2.connect(gain);
@@ -118,13 +240,13 @@ class CallingModule {
         const now = ctx.currentTime;
         osc1.start(now);
         osc2.start(now);
-        osc1.stop(now + 1.2);
-        osc2.stop(now + 1.2);
+        osc1.stop(now + 1.0);
+        osc2.stop(now + 1.0);
       } catch (e) {}
     };
 
     playTone();
-    this.ringInterval = setInterval(playTone, 3200);
+    this.ringInterval = setInterval(playTone, 3000);
   }
 
   stopRingtone() {
@@ -146,61 +268,52 @@ class CallingModule {
     }, 1000);
   }
 
-  endCall() {
+  endCall(notifyRemote = true) {
     this.stopRingtone();
     clearInterval(this.callTimer);
+
+    if (notifyRemote && this.activeTargetUserId) {
+      this.sendSignal("call_end", {});
+    }
 
     if (this.localStream) {
       this.localStream.getTracks().forEach(t => t.stop());
       this.localStream = null;
     }
 
-    const dur = this.seconds > 0 ? `${this.seconds}s` : "Call missed";
-    window.app.showToast(`Call ended (${dur}) 📞`);
-    window.app.playSound('pop');
+    if (this.peerConnection) {
+      this.peerConnection.close();
+      this.peerConnection = null;
+    }
+
+    const dur = this.seconds > 0 ? `${this.seconds}s` : "Ended";
+    if (window.app) window.app.showToast(`Call ended (${dur}) 📞`);
 
     if (this.modal) this.modal.classList.remove("active");
+    if (this.incomingModal) this.incomingModal.classList.remove("active");
   }
 
   setupControls() {
     const endBtn = document.getElementById("btn-end-call");
-    if (endBtn) endBtn.onclick = () => this.endCall();
+    if (endBtn) endBtn.onclick = () => this.endCall(true);
 
-    const muteBtn = document.getElementById("btn-toggle-mute");
+    const acceptBtn = document.getElementById("btn-accept-call");
+    if (acceptBtn) acceptBtn.onclick = () => this.acceptIncomingCall();
+
+    const declineBtn = document.getElementById("btn-decline-call");
+    if (declineBtn) declineBtn.onclick = () => this.declineIncomingCall();
+
+    const muteBtn = document.getElementById("btn-mute-audio");
     if (muteBtn) {
       muteBtn.onclick = () => {
         this.isMuted = !this.isMuted;
-        muteBtn.classList.toggle("active", this.isMuted);
-        muteBtn.innerHTML = this.isMuted ? '<i class="ph-fill ph-microphone-slash"></i>' : '<i class="ph-fill ph-microphone"></i>';
-        window.app.showToast(this.isMuted ? "Microphone muted 🔇" : "Microphone active 🎙️");
-        window.app.playSound('pop');
-      };
-    }
-
-    const videoBtn = document.getElementById("btn-toggle-video-call");
-    if (videoBtn) {
-      videoBtn.onclick = () => {
-        this.isVideo = !this.isVideo;
-        const videoContainer = document.getElementById("call-video-streams-container");
-        const voiceContainer = document.getElementById("call-voice-avatar-container");
-        if (this.isVideo) {
-          videoContainer.style.display = "block";
-          voiceContainer.style.display = "none";
-          this.initLocalVideo();
-        } else {
-          videoContainer.style.display = "none";
-          voiceContainer.style.display = "flex";
+        if (this.localStream) {
+          this.localStream.getAudioTracks().forEach(t => t.enabled = !this.isMuted);
         }
-        window.app.showToast(this.isVideo ? "Video enabled 📹" : "Video switched to Audio 📞");
-        window.app.playSound('pop');
+        muteBtn.classList.toggle("active", this.isMuted);
+        if (window.app) window.app.showToast(this.isMuted ? "Muted 🔇" : "Unmuted 🎙️");
       };
     }
-
-    // Incoming Call buttons
-    const acceptBtn = document.getElementById("btn-accept-incoming-call");
-    const declineBtn = document.getElementById("btn-decline-incoming-call");
-    if (acceptBtn) acceptBtn.onclick = () => this.acceptIncomingCall();
-    if (declineBtn) declineBtn.onclick = () => this.declineIncomingCall();
   }
 }
 

@@ -43,7 +43,12 @@ class AdminModule {
   }
 
   openAdminPortal() {
-    // Admin access is protected by Master PIN 910010025123343
+    if (window.authModule && window.authModule.currentUser && window.authModule.currentUser.role === 'admin') {
+      this.isUnlocked = true;
+      this.showPortal();
+      return;
+    }
+
     if (!this.isUnlocked) {
       this.openPinPrompt();
     } else {
@@ -56,7 +61,7 @@ class AdminModule {
     const pinInput = document.getElementById("admin-pin-text-input");
     if (pinInput) pinInput.value = "";
     const pinDisplay = document.getElementById("pin-display-dots");
-    if (pinDisplay) pinDisplay.innerText = "Enter Master Code";
+    if (pinDisplay) pinDisplay.innerText = "Enter Admin Security Code";
     const errorText = document.getElementById("pin-error-msg");
     if (errorText) errorText.innerText = "";
     if (this.pinModal) this.pinModal.classList.add("active");
@@ -71,7 +76,7 @@ class AdminModule {
     if (this.enteredPin.length < 25) {
       this.enteredPin += digit;
       this.updatePinDots();
-      window.app.playSound('pop');
+      if (window.app && typeof window.app.playSound === "function") window.app.playSound('pop');
     }
   }
 
@@ -79,7 +84,7 @@ class AdminModule {
     if (this.enteredPin.length > 0) {
       this.enteredPin = this.enteredPin.slice(0, -1);
       this.updatePinDots();
-      window.app.playSound('pop');
+      if (window.app && typeof window.app.playSound === "function") window.app.playSound('pop');
     }
   }
 
@@ -89,37 +94,58 @@ class AdminModule {
     if (pinInput) pinInput.value = this.enteredPin;
     if (pinDisplay) {
       if (this.enteredPin.length === 0) {
-        pinDisplay.innerText = "Enter Master Code";
+        pinDisplay.innerText = "Enter Admin Security Code";
       } else {
-        pinDisplay.innerText = "●".repeat(this.enteredPin.length) + ` (${this.enteredPin.length} digits)`;
+        pinDisplay.innerText = "●".repeat(this.enteredPin.length);
       }
     }
   }
 
-  submitPin() {
+  async submitPin() {
     const pinInput = document.getElementById("admin-pin-text-input");
     const code = (pinInput && pinInput.value ? pinInput.value : this.enteredPin).trim();
-    const isValid = window.authModule.verifyAdminPin(code);
     const errorMsg = document.getElementById("pin-error-msg");
-    if (isValid) {
+    
+    if (!code) {
+      if (errorMsg) errorMsg.innerText = "Please enter the Admin Security Code.";
+      return;
+    }
+
+    let verified = false;
+
+    // Check with genuine backend API first
+    if (window.apiClient) {
+      try {
+        const res = await window.apiClient.post('/admin/verify-pin', { pin: code });
+        if (res && res.verified) {
+          verified = true;
+        }
+      } catch (err) {
+        // Backend returned non-200 (invalid code)
+      }
+    }
+
+    // Fallback check if offline
+    if (!verified && window.authModule && typeof window.authModule.verifyAdminPin === "function") {
+      verified = window.authModule.verifyAdminPin(code);
+    }
+
+    if (verified) {
       this.isUnlocked = true;
       this.closePinPrompt();
       
-      // Auto-elevate session to Founder & Admin Ankit Chaudhary
-      if (window.authModule) {
-        const users = window.authModule.getUsers();
-        const adminUser = users.find(u => u.role === "admin" || u.username === "ankit_chaudhary") || users[0];
-        window.authModule.setActiveUser(adminUser);
+      if (window.omniStore && typeof window.omniStore.logAuditEvent === "function") {
+        window.omniStore.logAuditEvent("ADMIN_UNLOCK", "Admin Control Center unlocked securely");
       }
-      
-      window.omniStore.logAuditEvent("ADMIN_UNLOCK", "Admin Control Center unlocked with Master Code 910010025123343");
-      window.app.showToast("👑 Admin Master Access Granted! Welcome Ankit Chaudhary 🚀");
-      window.app.playSound('ding');
+      window.app.showToast("👑 Admin Access Granted!");
+      if (window.app && typeof window.app.playSound === "function") window.app.playSound('ding');
       this.showPortal();
     } else {
-      if (errorMsg) errorMsg.innerText = "Incorrect Master PIN. Please try again.";
-      window.omniStore.logAuditEvent("SECURITY_WARNING", "Failed Admin Master Code attempt entered.");
-      window.app.playSound('pop');
+      if (errorMsg) errorMsg.innerText = "Incorrect Admin Security Code. Access denied.";
+      if (window.omniStore && typeof window.omniStore.logAuditEvent === "function") {
+        window.omniStore.logAuditEvent("SECURITY_WARNING", "Failed Admin access attempt.");
+      }
+      if (window.app && typeof window.app.playSound === "function") window.app.playSound('pop');
       this.enteredPin = "";
       this.updatePinDots();
     }

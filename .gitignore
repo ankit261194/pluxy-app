@@ -24,3 +24,7 @@ npm-debug.log*
 build/
 local.properties
 *.apk.idsig
+
+*.db-wal
+*.db-shm
+

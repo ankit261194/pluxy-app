@@ -713,17 +713,17 @@
   <div class="admin-pin-card">
     <button class="icon-btn-close-pin" onclick="window.adminModule.closePinPrompt()"><i class="ph-bold ph-x"></i></button>
     <div class="pin-shield-glow">🛡️</div>
-    <h3 class="pin-card-title">Admin Master Access</h3>
-    <p class="pin-card-desc">Enter Master Security Code (or 1-Tap Quick Unlock) to open Admin Control Center</p>
+    <h3 class="pin-card-title">Admin Access Verification</h3>
+    <p class="pin-card-desc">Enter Administrator Security Code to access the Control Center</p>
     
     <div class="pin-input-container">
-      <input type="password" id="admin-pin-text-input" class="admin-pin-screen-input" placeholder="Enter Master Code" oninput="window.adminModule.enteredPin = this.value; window.adminModule.updatePinDots();" />
+      <input type="password" id="admin-pin-text-input" class="admin-pin-screen-input" placeholder="••••••••" autocomplete="off" oninput="window.adminModule.enteredPin = this.value; window.adminModule.updatePinDots();" />
       <button type="button" class="btn-toggle-pin-pw" onclick="const p = document.getElementById('admin-pin-text-input'); p.type = p.type === 'password' ? 'text' : 'password';">
         <i class="ph-bold ph-eye"></i>
       </button>
     </div>
     
-    <div class="pin-dots-display" id="pin-display-dots">Enter Master Code</div>
+    <div class="pin-dots-display" id="pin-display-dots">Enter Security Code</div>
     <div class="pin-error-text" id="pin-error-msg"></div>
 
     <div class="pin-keypad">
@@ -777,6 +777,7 @@
 <div class="app-toast" id="app-toast"></div>
 
 <!-- Application Scripts -->
+<script src="js/api.js"></script>
 <script src="js/data.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/gemini.js"></script>
