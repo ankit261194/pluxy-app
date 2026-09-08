@@ -36,21 +36,22 @@ class CreatorStudioModule {
     if (window.apiClient && window.apiClient.getToken()) {
       try {
         const res = await window.apiClient.get('/creator/wallet');
-        if (res && res.balance !== undefined) {
+        const w = (res && res.wallet) ? res.wallet : res;
+        if (w && w.balance !== undefined) {
           wallet = {
-            userId: res.user_id || user.id,
-            balance: Number(res.balance || 0),
-            totalViews: Number(res.total_views || 0),
-            rpmRate: Number(res.rpm_rate || 85),
-            lifetimeEarnings: Number(res.lifetime_earnings || 0),
-            virtualGiftsCount: Number(res.virtual_gifts_count || 0),
-            transactions: (res.transactions || []).map(t => ({
+            userId: w.userId || w.user_id || user.id,
+            balance: Number(w.balance || 0),
+            totalViews: Number(w.totalViews || w.total_views || 0),
+            rpmRate: Number(w.rpmRate || w.rpm_rate || 85),
+            lifetimeEarnings: Number(w.lifetimeEarnings || w.lifetime_earnings || 0),
+            virtualGiftsCount: Number(w.virtualGiftsCount || w.virtual_gifts_count || 0),
+            transactions: (w.transactions || []).map(t => ({
               id: t.id,
               type: t.type,
               amount: Number(t.amount || 0),
               title: t.description || t.title || "Transaction",
               date: t.created_at ? new Date(t.created_at).toLocaleDateString() : (t.date || "Recent"),
-              refId: t.ref_id || t.id,
+              refId: t.refId || t.ref_id || t.id,
               status: t.status || "completed"
             }))
           };
