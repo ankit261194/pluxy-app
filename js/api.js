@@ -2,11 +2,15 @@
 class PluxyApiClient {
   constructor() {
     this.tokenKey = "pluxy_auth_token";
-    // Base URL defaults to window origin, or custom host if configured
-    this.baseUrl = window.location.origin;
-    if (window.location.protocol === "file:") {
-      this.baseUrl = "https://appassets.androidplatform.net";
-    }
+    const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    // On local machine use origin; on Hostinger, web, or mobile, connect to production cloud backend
+    this.baseUrl = isLocalhost ? window.location.origin : "https://pluxy-app.onrender.com";
+  }
+
+  getWsUrl() {
+    const token = this.getToken();
+    const wsBase = this.baseUrl.replace(/^http/, "ws");
+    return `${wsBase}/ws?token=${encodeURIComponent(token)}`;
   }
 
   getToken() {

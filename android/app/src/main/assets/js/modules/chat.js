@@ -19,10 +19,9 @@ class ChatModule {
   initWebSocket() {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) return;
 
-    const token = window.apiClient ? window.apiClient.getToken() : "";
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host || "localhost:8080";
-    const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`;
+    const wsUrl = (window.apiClient && typeof window.apiClient.getWsUrl === "function")
+      ? window.apiClient.getWsUrl()
+      : `wss://pluxy-app.onrender.com/ws`;
 
     try {
       this.socket = new WebSocket(wsUrl);
