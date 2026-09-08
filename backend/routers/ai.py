@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException
 from backend.security import get_current_user
-from backend.ai_service import call_gemini
+from backend.ai_service import call_gemini, call_gemini_vision
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -18,6 +18,10 @@ class AIChatRequest(BaseModel):
 class AICaptionRequest(BaseModel):
     topic: str = Field(..., min_length=2, max_length=500)
     tone: Optional[str] = "viral"
+
+class AIVisionRequest(BaseModel):
+    image: str = Field(..., min_length=10)
+    prompt: Optional[str] = "Analyze this photo for aesthetic composition, lighting, style, color balance, and give an aesthetic rating score from 1 to 10."
 
 @router.post("/chat")
 async def chat_with_gemini(req: AIChatRequest, current_user: dict = Depends(get_current_user)):
@@ -53,3 +57,16 @@ async def generate_caption(req: AICaptionRequest, current_user: dict = Depends(g
         raise HTTPException(status_code=503, detail=res["error"])
 
     return {"success": True, "caption": res["reply"], "isLive": True}
+
+@router.post("/vision")
+async def analyze_photo_vision(req: AIVisionRequest, current_user: dict = Depends(get_current_user)):
+    res = await call_gemini_vision(
+        image_b64=req.image,
+        prompt=req.prompt,
+        user_id=current_user["id"]
+    )
+    if not res["success"]:
+        raise HTTPException(status_code=503, detail=res["error"])
+
+    return {"success": True, "analysis": res["analysis"], "isLive": True}
+

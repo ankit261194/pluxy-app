@@ -1,4 +1,4 @@
-// Instagram + Snapchat 24-Hour Stories Module
+// Instagram + Snapchat 24-Hour Stories Module (Connected to Genuine Backend API)
 class StoriesModule {
   constructor() {
     this.tray = document.getElementById("stories-tray");
@@ -9,17 +9,34 @@ class StoriesModule {
     this.isPaused = false;
     this.progressInterval = null;
     this.currentProgress = 0;
+    this.stories = [];
   }
 
-  init() {
-    this.renderTray();
+  async init() {
+    await this.renderTray();
     this.setupViewerControls();
   }
 
-  renderTray() {
-    const stories = window.omniStore.getStories();
-    const currentUser = window.omniStore.getCurrentUser();
+  async renderTray() {
     if (!this.tray) return;
+
+    if (window.apiClient) {
+      try {
+        const res = await window.apiClient.get("/stories");
+        if (res && res.success && Array.isArray(res.stories)) {
+          this.stories = res.stories;
+        }
+      } catch (err) {
+        console.warn("Could not fetch stories from backend:", err);
+      }
+    }
+
+    if (!this.stories.length && window.omniStore && typeof window.omniStore.getStories === "function") {
+      this.stories = window.omniStore.getStories();
+    }
+
+    const currentUser = (window.authModule && window.authModule.currentUser) || 
+                        (window.omniStore && window.omniStore.getCurrentUser ? window.omniStore.getCurrentUser() : null);
 
     const myAvatar = (currentUser && currentUser.avatar) ? currentUser.avatar : "assets/pluxy-icon.png";
 
@@ -27,19 +44,19 @@ class StoriesModule {
       <!-- My Story Add Button -->
       <div class="story-avatar-item my-story" onclick="window.storiesModule.promptAddStory()">
         <div class="avatar-ring-add">
-          <img src="${myAvatar}" alt="My Story" />
+          <img src="${window.apiClient ? window.apiClient.safeUrl(myAvatar) : myAvatar}" alt="My Story" />
           <span class="story-add-badge">+</span>
         </div>
         <span class="story-user-label">Your Story</span>
       </div>
 
       <!-- Friends Stories -->
-      ${stories.map((s, idx) => `
+      ${this.stories.map((s, idx) => `
         <div class="story-avatar-item" onclick="window.storiesModule.openStory(${idx})">
           <div class="avatar-ring-gradient ${s.hasUnseen ? 'unseen' : 'seen'}">
-            <img src="${s.userAvatar}" alt="${s.userDisplayName}" />
+            <img src="${window.apiClient ? window.apiClient.safeUrl(s.userAvatar) : s.userAvatar}" alt="${window.apiClient ? window.apiClient.escapeHtml(s.userDisplayName) : s.userDisplayName}" />
           </div>
-          <span class="story-user-label">${s.userDisplayName.split(' ')[0]}</span>
+          <span class="story-user-label">${window.apiClient ? window.apiClient.escapeHtml((s.userDisplayName || s.username || "User").split(' ')[0]) : (s.userDisplayName || "User")}</span>
         </div>
       `).join("")}
     `;
@@ -48,31 +65,25 @@ class StoriesModule {
   openStory(storyIndex) {
     this.currentStoryIndex = storyIndex;
     this.currentItemIndex = 0;
-    const stories = window.omniStore.getStories();
-    const story = stories[this.currentStoryIndex];
+    const story = this.stories[this.currentStoryIndex];
     if (!story) return;
 
     story.hasUnseen = false;
-    window.omniStore.save();
-    this.renderTray();
-
     this.viewer.classList.add("active");
     this.renderCurrentStoryItem();
-    window.app.playSound('pop');
+    if (window.app) window.app.playSound('pop');
   }
 
   renderCurrentStoryItem() {
-    const stories = window.omniStore.getStories();
-    const story = stories[this.currentStoryIndex];
-    if (!story) {
+    const story = this.stories[this.currentStoryIndex];
+    if (!story || !story.items || !story.items.length) {
       this.closeStory();
       return;
     }
 
     const item = story.items[this.currentItemIndex];
     if (!item) {
-      // Next user story or close
-      if (this.currentStoryIndex < stories.length - 1) {
+      if (this.currentStoryIndex < this.stories.length - 1) {
         this.currentStoryIndex++;
         this.currentItemIndex = 0;
         this.renderCurrentStoryItem();
@@ -83,24 +94,30 @@ class StoriesModule {
     }
 
     // Header info
-    document.getElementById("story-author-avatar").src = story.userAvatar;
-    document.getElementById("story-author-name").innerText = story.userDisplayName;
-    document.getElementById("story-timestamp").innerText = item.timestamp;
+    const avatarEl = document.getElementById("story-author-avatar");
+    const nameEl = document.getElementById("story-author-name");
+    const timeEl = document.getElementById("story-timestamp");
+    if (avatarEl) avatarEl.src = window.apiClient ? window.apiClient.safeUrl(story.userAvatar) : story.userAvatar;
+    if (nameEl) nameEl.innerText = story.userDisplayName || story.username;
+    if (timeEl) timeEl.innerText = item.timestamp || "Recent";
 
     // Segmented progress bars
     const progressContainer = document.getElementById("story-progress-segments");
-    progressContainer.innerHTML = story.items.map((_, i) => `
-      <div class="story-segment">
-        <div class="segment-fill" id="segment-fill-${i}" style="width: ${i < this.currentItemIndex ? '100%' : '0%'}"></div>
-      </div>
-    `).join("");
+    if (progressContainer) {
+      progressContainer.innerHTML = story.items.map((_, i) => `
+        <div class="story-segment">
+          <div class="segment-fill" id="segment-fill-${i}" style="width: ${i < this.currentItemIndex ? '100%' : '0%'}"></div>
+        </div>
+      `).join("");
+    }
 
     // Image & Caption
     const imgElem = document.getElementById("story-media-image");
-    imgElem.src = item.mediaUrl;
-    document.getElementById("story-caption-text").innerText = item.caption || "";
+    if (imgElem) imgElem.src = window.apiClient ? window.apiClient.safeUrl(item.mediaUrl) : item.mediaUrl;
+    const captionElem = document.getElementById("story-caption-text");
+    if (captionElem) captionElem.innerText = item.caption || "";
 
-    // Start progress timer (5 seconds)
+    // Start progress timer
     this.startProgress(item.duration || 5000);
   }
 
@@ -126,15 +143,14 @@ class StoriesModule {
 
   nextItem() {
     clearInterval(this.progressInterval);
-    const stories = window.omniStore.getStories();
-    const story = stories[this.currentStoryIndex];
+    const story = this.stories[this.currentStoryIndex];
     if (!story) return;
 
     if (this.currentItemIndex < story.items.length - 1) {
       this.currentItemIndex++;
       this.renderCurrentStoryItem();
     } else {
-      if (this.currentStoryIndex < stories.length - 1) {
+      if (this.currentStoryIndex < this.stories.length - 1) {
         this.currentStoryIndex++;
         this.currentItemIndex = 0;
         this.renderCurrentStoryItem();
@@ -152,10 +168,11 @@ class StoriesModule {
     } else {
       if (this.currentStoryIndex > 0) {
         this.currentStoryIndex--;
-        const prevStory = window.omniStore.getStories()[this.currentStoryIndex];
-        this.currentItemIndex = prevStory.items.length - 1;
+        const prevStory = this.stories[this.currentStoryIndex];
+        this.currentItemIndex = prevStory ? Math.max(0, prevStory.items.length - 1) : 0;
         this.renderCurrentStoryItem();
       } else {
+        this.currentItemIndex = 0;
         this.renderCurrentStoryItem();
       }
     }
@@ -163,7 +180,7 @@ class StoriesModule {
 
   closeStory() {
     clearInterval(this.progressInterval);
-    this.viewer.classList.remove("active");
+    if (this.viewer) this.viewer.classList.remove("active");
   }
 
   setupViewerControls() {
@@ -172,7 +189,6 @@ class StoriesModule {
 
     const mediaArea = document.getElementById("story-touch-area");
     if (mediaArea) {
-      // Tap navigation: Left 30% = prev, Right 70% = next
       mediaArea.addEventListener("click", (e) => {
         const rect = mediaArea.getBoundingClientRect();
         const clickX = e.clientX - rect.left;
@@ -183,7 +199,6 @@ class StoriesModule {
         }
       });
 
-      // Press and hold to pause
       mediaArea.addEventListener("mousedown", () => { this.isPaused = true; });
       mediaArea.addEventListener("mouseup", () => { this.isPaused = false; });
       mediaArea.addEventListener("touchstart", () => { this.isPaused = true; }, { passive: true });
@@ -192,8 +207,10 @@ class StoriesModule {
   }
 
   promptAddStory() {
-    window.app.switchTab("snaps");
-    window.app.showToast("Take a photo with the Camera to add to Your Story! ??");
+    if (window.app) {
+      window.app.switchTab("snaps");
+      window.app.showToast("Take a photo with the Camera to add to Your Story! 📸");
+    }
   }
 }
 

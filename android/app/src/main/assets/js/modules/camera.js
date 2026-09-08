@@ -1065,54 +1065,66 @@ class CameraModule {
 
     const sendSnapBtn = document.getElementById("btn-send-created-snap");
     if (sendSnapBtn) {
-      sendSnapBtn.onclick = () => {
+      sendSnapBtn.onclick = async () => {
         const caption = document.getElementById("snap-editor-caption").value;
         const duration = parseInt(document.getElementById("snap-editor-timer").value, 10) || 5;
 
-        window.omniStore.addSnap(this.capturedDataUrl, caption, duration);
+        // Dispatch to real backend API
+        if (window.apiClient && window.apiClient.getToken()) {
+          try {
+            await window.apiClient.post("/snaps", {
+              media_url: this.capturedDataUrl,
+              caption: caption,
+              duration: duration
+            });
+          } catch (err) {
+            console.warn("Could not sync snap to server:", err);
+          }
+        }
+
+        if (window.omniStore && typeof window.omniStore.addSnap === "function") {
+          window.omniStore.addSnap(this.capturedDataUrl, caption, duration);
+        }
         document.getElementById("snap-editor-modal").classList.remove("active");
         document.getElementById("snap-editor-caption").value = "";
 
-        window.app.showToast("🔥 Snapchat AR Snap sent! Streak increased! 🚀");
-        window.app.playSound('ding');
-        window.app.switchTab("snaps");
+        if (window.snapsModule && typeof window.snapsModule.renderSnaps === "function") {
+          await window.snapsModule.renderSnaps();
+        }
+        if (window.app) {
+          window.app.showToast("🔥 Snapchat AR Snap sent! Streak increased! 🚀");
+          window.app.playSound('ding');
+          window.app.switchTab("snaps");
+        }
       };
     }
 
     const addToStoryBtn = document.getElementById("btn-add-to-story");
     if (addToStoryBtn) {
-      addToStoryBtn.onclick = () => {
+      addToStoryBtn.onclick = async () => {
         const caption = document.getElementById("snap-editor-caption").value;
-        const stories = window.omniStore.getStories();
-        const user = window.omniStore.getCurrentUser();
 
-        let myStory = stories.find(s => s.userId === user.id);
-        if (!myStory) {
-          myStory = {
-            id: "story_mine",
-            userId: user.id,
-            username: user.username,
-            userDisplayName: user.displayName,
-            userAvatar: user.avatar,
-            hasUnseen: true,
-            items: []
-          };
-          stories.unshift(myStory);
+        // Dispatch to real backend API
+        if (window.apiClient && window.apiClient.getToken()) {
+          try {
+            await window.apiClient.post("/stories", {
+              media_url: this.capturedDataUrl,
+              caption: caption || `Captured with ${this.activeLens} filter ✨`
+            });
+          } catch (err) {
+            console.warn("Could not sync story to server:", err);
+          }
         }
 
-        myStory.items.unshift({
-          id: "item_" + Date.now(),
-          mediaUrl: this.capturedDataUrl,
-          caption: caption || `Captured with ${this.activeLens} filter ✨`,
-          timestamp: "Just now",
-          duration: 5000
-        });
-
-        window.omniStore.save();
         document.getElementById("snap-editor-modal").classList.remove("active");
-        window.app.showToast("AR Snap added to 24h Story! 📸✨");
-        window.app.playSound('ding');
-        window.app.switchTab("feed");
+        if (window.storiesModule && typeof window.storiesModule.renderTray === "function") {
+          await window.storiesModule.renderTray();
+        }
+        if (window.app) {
+          window.app.showToast("AR Snap added to 24h Story! 📸✨");
+          window.app.playSound('ding');
+          window.app.switchTab("feed");
+        }
       };
     }
   }

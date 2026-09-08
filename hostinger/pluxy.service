@@ -1,0 +1,19 @@
+[Unit]
+Description=Pluxy Social Super-App FastAPI ASGI Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/pluxy
+Environment="PATH=/var/www/pluxy/venv/bin"
+Environment="PORT=8080"
+Environment="DATABASE_URL=sqlite:////var/www/pluxy/data/pluxy.db"
+ExecStart=/var/www/pluxy/venv/bin/python -m uvicorn server:app --host 127.0.0.1 --port 8080 --workers 2 --ws-ping-interval 30 --ws-ping-timeout 30
+
+Restart=always
+RestartSec=3s
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,4 @@
-﻿// Snapchat Ephemeral Snaps & Streaks Module
+// Snapchat Ephemeral Snaps & Streaks Module
 class SnapsModule {
   constructor() {
     this.container = document.getElementById("snaps-list-container");
@@ -13,8 +13,34 @@ class SnapsModule {
     this.setupViewer();
   }
 
-  renderSnaps() {
-    const snaps = window.omniStore.getSnaps();
+  async renderSnaps() {
+    let snaps = [];
+    if (window.apiClient && window.apiClient.getToken()) {
+      try {
+        const res = await window.apiClient.get("/snaps");
+        if (res && res.success && Array.isArray(res.snaps)) {
+          snaps = res.snaps.map(s => ({
+            id: s.id,
+            senderName: s.sender ? s.sender.displayName : (s.senderName || "Friend"),
+            senderAvatar: s.sender ? s.sender.avatar : (s.senderAvatar || "assets/pluxy-icon.png"),
+            mediaUrl: s.mediaUrl,
+            caption: s.caption || "",
+            duration: s.duration || 5,
+            isOpened: s.isOpened || false,
+            timestamp: s.timestamp || "Recent"
+          }));
+          this.snapsList = snaps;
+        }
+      } catch (err) {
+        console.warn("Could not fetch snaps from backend:", err);
+      }
+    }
+
+    if (!snaps.length && window.omniStore && typeof window.omniStore.getSnaps === "function") {
+      snaps = window.omniStore.getSnaps();
+    }
+    this.snapsList = snaps;
+
     if (!this.container) return;
 
     this.container.innerHTML = `
@@ -22,8 +48,8 @@ class SnapsModule {
       <div class="streak-banner">
         <div class="streak-flame-icon">🔥</div>
         <div class="streak-info">
-          <strong>14 Days Streak with Priya Sharma!</strong>
-          <span>Send a snap within 5h 20m to keep the flame alive!</span>
+          <strong>Snapchat Streaks Active!</strong>
+          <span>Send daily snaps to friends to keep your flame streak alive!</span>
         </div>
         <button class="streak-action-btn" onclick="window.app.switchTab('camera')">Snap 📸</button>
       </div>
@@ -35,18 +61,19 @@ class SnapsModule {
 
       <!-- Snaps List -->
       <div class="snaps-items-list">
+        ${snaps.length === 0 ? '<div style="padding: 30px; text-align: center; color: #8E8E93;">No snaps right now. Tap the camera to send a snap! 📸</div>' : ''}
         ${snaps.map(snap => `
           <div class="snap-item-card ${snap.isOpened ? 'opened' : 'unopened'}" onclick="window.snapsModule.openSnap('${snap.id}')">
             <div class="snap-avatar-wrap">
-              <img src="${snap.senderAvatar}" alt="${snap.senderName}" />
+              <img src="${window.apiClient ? window.apiClient.safeUrl(snap.senderAvatar) : snap.senderAvatar}" alt="${window.apiClient ? window.apiClient.escapeHtml(snap.senderName) : snap.senderName}" />
               <div class="snap-status-icon ${snap.isOpened ? 'opened' : 'unopened'}">
                 ${snap.isOpened ? '<i class="ph ph-square"></i>' : '<i class="ph-fill ph-square"></i>'}
               </div>
             </div>
             <div class="snap-details">
               <div class="snap-sender-row">
-                <strong class="snap-sender-name">${snap.senderName}</strong>
-                <span class="snap-timestamp">${snap.timestamp}</span>
+                <strong class="snap-sender-name">${window.apiClient ? window.apiClient.escapeHtml(snap.senderName) : snap.senderName}</strong>
+                <span class="snap-timestamp">${window.apiClient ? window.apiClient.escapeHtml(snap.timestamp) : snap.timestamp}</span>
               </div>
               <div class="snap-status-hint">
                 ${snap.isOpened ? 'Opened • Tap camera to reply' : `<strong>New Snap • ${snap.duration}s • Tap to view</strong>`}
@@ -62,25 +89,33 @@ class SnapsModule {
   }
 
   openSnap(snapId) {
-    const snap = window.omniStore.getSnaps().find(s => s.id === snapId);
+    const snaps = this.snapsList || (window.omniStore ? window.omniStore.getSnaps() : []);
+    const snap = snaps.find(s => s.id === snapId);
     if (!snap) return;
 
     if (snap.isOpened) {
-      window.app.showToast(`Snap from ${snap.senderName} has already expired & self-destructed! ⏳`);
-      window.app.playSound('pop');
+      if (window.app) {
+        window.app.showToast(`Snap from ${snap.senderName} has already expired & self-destructed! ⏳`);
+        window.app.playSound('pop');
+      }
       return;
     }
 
     this.activeSnap = snap;
     this.remainingSeconds = snap.duration || 5;
 
-    document.getElementById("snap-media-image").src = snap.mediaUrl;
-    document.getElementById("snap-sender-info").innerText = `Snap from ${snap.senderName}`;
-    document.getElementById("snap-caption-text").innerText = snap.caption || '';
-    document.getElementById("snap-timer-counter").innerText = this.remainingSeconds;
+    const imgEl = document.getElementById("snap-media-image");
+    const senderEl = document.getElementById("snap-sender-info");
+    const captionEl = document.getElementById("snap-caption-text");
+    const counterEl = document.getElementById("snap-timer-counter");
+
+    if (imgEl) imgEl.src = window.apiClient ? window.apiClient.safeUrl(snap.mediaUrl) : snap.mediaUrl;
+    if (senderEl) senderEl.innerText = `Snap from ${snap.senderName}`;
+    if (captionEl) captionEl.innerText = snap.caption || '';
+    if (counterEl) counterEl.innerText = this.remainingSeconds;
 
     this.viewer.classList.add("active");
-    window.app.playSound('ding');
+    if (window.app) window.app.playSound('ding');
 
     // Countdown timer
     clearInterval(this.snapTimer);
@@ -96,20 +131,37 @@ class SnapsModule {
     }, 1000);
   }
 
-  burnAndCloseSnap() {
+  async burnAndCloseSnap() {
     const viewer = this.viewer;
-    viewer.classList.add("burning");
-    window.app.playSound('whoosh');
+    if (viewer) {
+      viewer.classList.add("burning");
+      if (window.app) window.app.playSound('whoosh');
+    }
+
+    const snapToBurn = this.activeSnap;
+    this.activeSnap = null;
+
+    if (snapToBurn) {
+      snapToBurn.isOpened = true;
+      if (window.apiClient && window.apiClient.getToken()) {
+        try {
+          await window.apiClient.post(`/snaps/${snapToBurn.id}/view`);
+        } catch (err) {
+          console.warn("Could not mark snap viewed on server:", err);
+        }
+      }
+      if (window.omniStore && typeof window.omniStore.markSnapOpened === "function") {
+        window.omniStore.markSnapOpened(snapToBurn.id);
+      }
+    }
 
     setTimeout(() => {
-      viewer.classList.remove("active");
-      viewer.classList.remove("burning");
-      if (this.activeSnap) {
-        window.omniStore.markSnapOpened(this.activeSnap.id);
-        this.renderSnaps();
-        window.app.showToast('🔥 Snap burned & deleted permanently!');
-        this.activeSnap = null;
+      if (viewer) {
+        viewer.classList.remove("active");
+        viewer.classList.remove("burning");
       }
+      this.renderSnaps();
+      if (window.app) window.app.showToast('🔥 Snap burned & deleted permanently!');
     }, 700);
   }
 

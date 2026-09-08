@@ -177,8 +177,25 @@ class ReelsModule {
     this.setupCreateReelModal();
   }
 
-  renderReels() {
-    const reels = window.omniStore.getReels();
+  async renderReels() {
+    let reels = [];
+    if (window.apiClient) {
+      try {
+        const res = await window.apiClient.get("/reels?limit=25");
+        if (res && res.success && Array.isArray(res.reels) && res.reels.length > 0) {
+          reels = res.reels;
+          this.reelsList = reels;
+        }
+      } catch (err) {
+        console.warn("Could not fetch reels from backend:", err);
+      }
+    }
+
+    if (!reels.length && window.omniStore && typeof window.omniStore.getReels === "function") {
+      reels = window.omniStore.getReels();
+    }
+    this.reelsList = reels;
+
     if (!this.container || !reels.length) return;
 
     if (this.currentIndex >= reels.length) this.currentIndex = 0;
@@ -986,7 +1003,7 @@ class ReelsModule {
   // PUBLISH REEL & INTEGRATE TO STORE
   // ==========================================
 
-  publishReel() {
+  async publishReel() {
     const captionInput = document.getElementById("reel-caption-input");
     const caption = (captionInput && captionInput.value.trim()) || "New viral reel on Pluxy! 🚀 #trending #pluxy";
     const audioTrack = this.selectedAudio 
@@ -999,18 +1016,25 @@ class ReelsModule {
     }
     const finalMedia = this.recordedMediaUrl || "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80";
 
-    // Save to omniStore
-    if (window.omniStore && typeof window.omniStore.addReel === "function") {
-      window.omniStore.addReel(finalMedia, caption, audioTrack);
+    // Save to genuine backend API
+    if (window.apiClient && window.apiClient.getToken()) {
+      try {
+        const res = await window.apiClient.post("/reels", {
+          video_url: finalMedia,
+          caption: caption,
+          audio_track: audioTrack
+        });
+        if (res && res.success) {
+          console.log("[Reels] Published reel to backend:", res.reelId);
+        }
+      } catch (err) {
+        console.warn("[Reels] Backend publish failed, falling back to local store:", err);
+      }
     }
 
-    // Broadcast through syncEngine if available
-    if (window.syncEngine) {
-      window.syncEngine.pushAdminUpdate("new_reel", {
-        mediaUrl: finalMedia,
-        caption: caption,
-        audioTrack: audioTrack
-      });
+    // Update omniStore for local consistency
+    if (window.omniStore && typeof window.omniStore.addReel === "function") {
+      window.omniStore.addReel(finalMedia, caption, audioTrack);
     }
 
     // Close studio modal cleanly
@@ -1023,7 +1047,7 @@ class ReelsModule {
 
     this.currentIndex = 0;
     this.isPlaying = true;
-    this.renderReels();
+    await this.renderReels();
 
     window.app.showToast("🎉 Your Reel has been published to Pluxy Reels! 🚀🎬");
     window.app.playSound('sent');
@@ -1108,27 +1132,36 @@ class ReelsModule {
     window.app.playSound('pop');
   }
 
-  confirmSendGift(reelId) {
+  async confirmSendGift(reelId) {
     if (!this.selectedGift) this.selectedGift = { amount: 20, name: '💎 Diamond' };
-    const currentUser = window.omniStore.getCurrentUser();
-    const senderName = currentUser ? currentUser.displayName : "Fan";
-    
-    const res = window.omniStore.sendReelGift(reelId, this.selectedGift.name, this.selectedGift.amount, senderName);
-
-    if (window.syncEngine) {
-      window.syncEngine.pushAdminUpdate("creator_reward", {
-        userId: res && res.targetUsername === 'ankit_chaudhary' ? 'user_ankit' : 'user_priya',
-        amount: this.selectedGift.amount,
-        note: `Fan Gift ${this.selectedGift.name} from ${senderName}`
-      });
-    }
-
+    const reels = this.reelsList || (window.omniStore ? window.omniStore.getReels() : []);
+    const reel = reels.find(r => r.id === reelId) || reels[this.currentIndex];
+    const targetUser = reel ? (reel.author.username || "creator") : "creator";
     const modal = document.getElementById("reel-gift-modal");
-    if (modal) modal.remove();
 
-    const targetUser = res ? res.targetUsername : "Creator";
-    window.app.showToast(`🎉 Sent ${this.selectedGift.name} (₹${this.selectedGift.amount}) to @${targetUser}! Deposited to Creator Wallet 💸`);
-    window.app.playSound('sent');
+    if (window.apiClient && window.apiClient.getToken()) {
+      try {
+        const res = await window.apiClient.post("/creator/gift", {
+          target_username: targetUser,
+          gift_name: this.selectedGift.name,
+          amount: Number(this.selectedGift.amount)
+        });
+        if (modal) modal.remove();
+        if (window.app) {
+          window.app.showToast(`🎉 Sent ${this.selectedGift.name} (₹${this.selectedGift.amount}) to @${targetUser}! Logged to Creator Wallet 💸`);
+          window.app.playSound('sent');
+        }
+        return;
+      } catch (err) {
+        if (window.app) {
+          window.app.showToast(`Could not send gift: ${err.message || "Failed"}`);
+          window.app.playSound('pop');
+        }
+        return;
+      }
+    } else {
+      if (window.app) window.app.showToast("Please log in to send creator tips! 🔒");
+    }
   }
 }
 
